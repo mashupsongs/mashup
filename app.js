@@ -217,7 +217,7 @@ function renderTrack() {
   el("track-title").textContent = t.title;
   el("track-artist").textContent = t.artist;
   el("cover").src = t.cover;
-  document.title = `Roadways.wtf - ${t.title}`;
+  document.title = `Mashup Songs - ${t.title}`;
 
   // The pill follows whatever is playing rather than pointing at a fixed video.
   el("yt-link").href = `https://www.youtube.com/watch?v=${t.youtubeId}`;
