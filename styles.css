@@ -1,0 +1,415 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --edge: 20px;
+  --shadow-text: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+/* Background lives on <html> only. Giving <body> one too would paint it
+   over .hero-bg, which sits at a negative z-index. */
+html { background: #0b0b0b; }
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #fff;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- background ---------- */
+
+.hero-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  background-color: #0b0b0b;
+  background-image: url("/bg.jpg");
+  background-size: cover;
+  background-position: 50% 50%;
+  background-repeat: no-repeat;
+
+  /* Rough-road bounce. The camera is bolted inside the bus, so the whole
+     scene moves as one; the fixed UI on top deliberately stays still.
+     Overscaled so the bump never exposes an edge.
+
+     translate and rotate are separate CSS properties, so the two
+     animations below compose instead of overwriting each other. Their
+     durations are deliberately non-multiples, so the combined pattern
+     takes ~90s to repeat and never reads as a metronome. */
+  scale: 1.045;
+  animation: bus-bump 1.9s ease-in-out infinite,
+             bus-tilt 4.7s ease-in-out infinite;
+  will-change: translate, rotate;
+}
+
+/* The looping drive. bg.jpg stays underneath as the poster and the fallback
+   for blocked autoplay, Low Power Mode, save-data and reduced motion, so the
+   page is never blank if this never plays. object-position mirrors the still's
+   background-position so the framing is identical either way. */
+.hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+/* Only revealed once it is genuinely playing, so we never cross-fade to a
+   black or half-buffered frame. */
+.hero-video.is-playing { opacity: 1; }
+
+/* The CSS bounce stays on over the video. The clip's baked-in vibration is
+   too subtle to read on its own, and the bounce is compositor-driven -
+   the historical stutter causes were the grain repaint and playback racing
+   the download, both fixed, not this. */
+
+/* Sharp irregular jolts, not a smooth sine. Potholes, not a swing. */
+@keyframes bus-bump {
+  0%   { translate: 0 0; }
+  9%   { translate: 0 -3px; }
+  17%  { translate: 0 1px; }
+  28%  { translate: 0 -2px; }
+  36%  { translate: 0 0; }
+  47%  { translate: 0 -4px; }
+  55%  { translate: 0 1px; }
+  63%  { translate: 0 -1px; }
+  74%  { translate: 0 -3px; }
+  85%  { translate: 0 1px; }
+  93%  { translate: 0 -2px; }
+  100% { translate: 0 0; }
+}
+
+@keyframes bus-tilt {
+  0%   { rotate: -0.08deg; }
+  30%  { rotate: 0.1deg; }
+  55%  { rotate: -0.05deg; }
+  80%  { rotate: 0.07deg; }
+  100% { rotate: -0.08deg; }
+}
+
+/* Top and bottom only, to keep the fixed UI readable. The middle stays
+   clear so the artwork reads on its own. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0) 42%, rgba(0,0,0,0.48) 100%);
+}
+
+/* ---------- film grain ---------- */
+
+/* Above the artwork at -10, below the UI. Overlay blending lifts the flat
+   gouache without washing out the whites in the player pill, which sits in
+   a later layer and is never blended. */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: -5;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: calc(var(--edge) + env(safe-area-inset-top)) var(--edge) calc(var(--edge) + env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+
+/* ---------- top bar ---------- */
+
+.clock,
+.links {
+  position: fixed;
+  top: calc(var(--edge) + env(safe-area-inset-top));
+  z-index: 20;
+  font-size: 14px;
+  font-weight: 500;
+  filter: drop-shadow(var(--shadow-text));
+}
+
+.clock {
+  left: var(--edge);
+  font-variant-numeric: tabular-nums;
+}
+
+.clock .colon { animation: blink 1s step-end infinite; }
+.clock .meridiem { margin-left: 6px; color: rgba(255,255,255,0.7); }
+
+@keyframes blink { 50% { opacity: 0; } }
+
+.links { right: var(--edge); display: flex; gap: 8px; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 12px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+}
+
+.pill:hover { opacity: 0.8; }
+.pill:active { transform: scale(0.95); }
+.pill-arrow { display: inline-flex; rotate: -45deg; opacity: 0.5; transition: opacity 0.2s ease; }
+.pill:hover .pill-arrow { opacity: 0.9; }
+
+/* ---------- player ---------- */
+
+.player {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--edge) + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: min(640px, calc(100vw - var(--edge) * 2));
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: rgba(28, 24, 22, 0.44);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* the disc */
+
+.disc {
+  position: relative;
+  flex: 0 0 auto;
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  animation: spin 7s linear infinite;
+  animation-play-state: paused;
+}
+
+.player.is-playing .disc { animation-play-state: running; }
+
+.disc img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.disc-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0 2px, rgba(0,0,0,0.05) 2px 4px),
+    linear-gradient(115deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 62%, rgba(255,255,255,0.14) 100%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.disc-hole {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26%;
+  height: 26%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgba(18, 16, 15, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18), 0 0 0 3px rgba(255,255,255,0.06);
+}
+
+@keyframes spin { to { rotate: 360deg; } }
+
+/* meta */
+
+.meta { flex: 1 1 auto; min-width: 0; }
+
+.title,
+.artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.artist { margin-top: 1px; font-size: 14px; color: rgba(255,255,255,0.7); }
+
+.seek {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 14px;
+  margin: 6px 0 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.seek::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #fff var(--progress, 0%), rgba(255,255,255,0.28) var(--progress, 0%));
+}
+
+.seek::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #fff var(--progress, 0%), rgba(255,255,255,0.28) var(--progress, 0%));
+}
+
+.seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.seek::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.player:hover .seek::-webkit-slider-thumb,
+.seek:focus-visible::-webkit-slider-thumb { opacity: 1; }
+.player:hover .seek::-moz-range-thumb,
+.seek:focus-visible::-moz-range-thumb { opacity: 1; }
+
+.time {
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.65);
+  font-variant-numeric: tabular-nums;
+}
+
+/* controls */
+
+.controls { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+
+.ctl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.1s ease, background 0.2s ease;
+}
+
+.ctl:hover { background: rgba(255,255,255,0.12); }
+.ctl:active { transform: scale(0.92); }
+.ctl:disabled { opacity: 0.35; cursor: default; }
+.ctl:disabled:hover { background: transparent; }
+
+.ctl.play {
+  width: 52px;
+  height: 52px;
+  background: #fff;
+  color: #16130f;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+}
+
+.ctl.play:hover { background: #fff; opacity: 0.9; }
+
+.ctl.play .i-pause { display: none; }
+.player.is-playing .ctl.play .i-play { display: none; }
+.player.is-playing .ctl.play .i-pause { display: block; }
+
+:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* hidden youtube host */
+
+.yt-host {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  bottom: 0;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ---------- mobile ---------- */
+
+@media (max-width: 767px) {
+  :root { --edge: 16px; }
+
+  /* Landscape-on-small-screens fallback crop. Portrait devices get their
+     own artwork below and never use this. */
+  .hero-bg { background-position: 48% 50%; }
+  .hero-video { object-position: 48% 50%; }
+
+  .pill { padding: 10px; }
+  .pill-label, .pill-arrow { display: none; }
+
+  .player {
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .disc { width: 60px; height: 60px; }
+  .title { font-size: 15px; }
+  .artist { font-size: 13px; }
+  .ctl { width: 32px; height: 32px; }
+  .ctl.play { width: 48px; height: 48px; }
+  .seek::-webkit-slider-thumb { opacity: 1; }
+  .seek::-moz-range-thumb { opacity: 1; }
+}
+
+@media (max-width: 400px) {
+  .controls { gap: 2px; }
+  .ctl { width: 30px; height: 30px; }
+}
+
+/* Portrait gets artwork composed for the frame, not a crop of the wide one.
+   hero-video.js picks /bg-portrait.mp4 to match. */
+@media (orientation: portrait) {
+  .hero-bg {
+    background-image: url("/bg-portrait.jpg");
+    background-position: 50% 50%;
+  }
+  .hero-video { object-position: 50% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disc, .clock .colon, .hero-bg { animation: none !important; }
+  .hero-bg { scale: 1; }
+  .hero-video { display: none; } /* fall back to the still */
+}
