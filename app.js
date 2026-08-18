@@ -142,7 +142,7 @@ function publishMediaSession(t) {
   navigator.mediaSession.metadata = new MediaMetadata({
     title: t.title,
     artist: t.artist,
-    album: "हिमाचल रोडवेज़",
+    album: "Mashup Songs",
     artwork: [
       { src: t.cover, sizes: "640x640", type: "image/jpeg" },
     ],
